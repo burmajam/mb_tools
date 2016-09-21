@@ -1,4 +1,27 @@
 defmodule MbTools.GenFacade do
+  @moduledoc """
+      defmodule MyFacade do
+        use MbTools.GenFacade
+      
+        route :do_something,      MyController          # calls MyController.do_something(params)
+        route :do_something_else, {MyController, :else} # calls MyController.else(params)
+      end
+
+
+  GenFacade is GenServer. It is used as:
+
+      {:ok, pid} = spawn_link MyFacade
+      cmd1 = {:do_something, %{"lat" => "21", "long" => "21"}}
+      cmd2 = {:do_something_else, %{"lat" => "21", "long" => "21"}, [req_id: "1231231"]}
+      GenServer.call pid, cmd1
+      GenServer.call pid, cmd2
+
+  `cmd` is tuple of 2 or 3 elements. First one is route, second one are params that will be proxied to controller,
+  and optional 3rd is Logger metadata that will be set for that task.
+
+  Result of MyController.do_something/1 will be sent in reply to GenServer.call. GenFacade handles that
+  """
+
   defmacro route(cmd, {controller, action}) do
     quote do
 	  def handle_call({unquote(cmd), params}, from, request_sup) do
