@@ -5,12 +5,25 @@ defmodule MbTools.GenFacade do
       
         route :do_something,      MyController          # calls MyController.do_something(params)
         route :do_something_else, {MyController, :else} # calls MyController.else(params)
+
+        def handle_call({:get_timezone, :point, lat, long, metadata}, from, request_sup) do
+          execute(request_sup, from, fn ->
+            Logger.metadata metadata
+            Timezone.get_timezone(:point, lat, long)
+          end)
+        end
       end
 
 
-  GenFacade is GenServer. It is used as:
+  GenFacade is GenServer. It requires Task.Supervisor when started. It is used as:
 
-      {:ok, pid} = spawn_link MyFacade
+      @request_sup MyApp.RequestSupervisor
+      children = [
+        supervisor(Task.Supervisor, [[name: @request_sup]]),
+        worker(MyFacade, [@request_sup, [name: {:global, MyFacade}]]),
+      ]
+      
+      pid = :global.whereis_name MyFacade
       cmd1 = {:do_something, %{"lat" => "21", "long" => "21"}}
       cmd2 = {:do_something_else, %{"lat" => "21", "long" => "21"}, [req_id: "1231231"]}
       GenServer.call pid, cmd1
@@ -19,7 +32,8 @@ defmodule MbTools.GenFacade do
   `cmd` is tuple of 2 or 3 elements. First one is route, second one are params that will be proxied to controller,
   and optional 3rd is Logger metadata that will be set for that task.
 
-  Result of MyController.do_something/1 will be sent in reply to GenServer.call. GenFacade handles that
+  Result of MyController.do_something/1 will be sent in reply to GenServer.call. GenFacade handles that. If format of message
+  is different, manual handle_call/3 handler can be set.
   """
 
   defmacro route(cmd, {controller, action}) do
